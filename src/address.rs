@@ -11,7 +11,6 @@ use hickory_resolver::{
     config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts},
     Resolver,
 };
-use ipnet::IpNet;
 use log::debug;
 
 use crate::input::Opts;
@@ -70,11 +69,11 @@ pub fn parse_addresses(input: &Opts) -> Vec<IpAddr> {
         }
     }
 
-    let excluded_nets = parse_excluded_networks(&input.exclude_addresses, &backup_resolver);
+    let excluded_cidrs = parse_excluded_networks(&input.exclude_addresses, &backup_resolver);
 
     // Remove duplicated/excluded IPs.
     let mut seen = BTreeSet::new();
-    ips.retain(|ip| seen.insert(*ip) && !excluded_nets.iter().any(|net| net.contains(ip)));
+    ips.retain(|ip| seen.insert(*ip) && !excluded_cidrs.iter().any(|cidr| cidr.contains(ip)));
 
     ips
 }
@@ -136,31 +135,31 @@ fn resolve_ips_from_host(source: &str, backup_resolver: &Resolver) -> Vec<IpAddr
 pub fn parse_excluded_networks(
     exclude_addresses: &Option<Vec<String>>,
     resolver: &Resolver,
-) -> Vec<IpNet> {
-    let mut excluded_nets: Vec<IpNet> = Vec::new();
+) -> Vec<IpCidr> {
+    let mut excluded_cidrs: Vec<IpCidr> = Vec::new();
     if let Some(exclude_addresses) = exclude_addresses {
         for addr in exclude_addresses {
-            if let Ok(net) = addr.parse::<IpNet>() {
-                excluded_nets.push(net);
+            if let Ok(cidr) = IpCidr::from_str(addr) {
+                excluded_cidrs.push(cidr);
             } else if let Ok(ip) = addr.parse::<IpAddr>() {
-                let net = match ip {
-                    IpAddr::V4(_) => IpNet::new(ip.into(), 32).unwrap(),
-                    IpAddr::V6(_) => IpNet::new(ip.into(), 128).unwrap(),
+                let cidr = match ip {
+                    IpAddr::V4(_) => IpCidr::from_str(&format!("{}/32", ip)).unwrap(),
+                    IpAddr::V6(_) => IpCidr::from_str(&format!("{}/128", ip)).unwrap(),
                 };
-                excluded_nets.push(net);
+                excluded_cidrs.push(cidr);
             } else {
                 let resolved_ips = resolve_ips_from_host(addr, resolver);
                 for ip in resolved_ips {
-                    let net = match ip {
-                        IpAddr::V4(_) => IpNet::new(ip.into(), 32).unwrap(),
-                        IpAddr::V6(_) => IpNet::new(ip.into(), 128).unwrap(),
+                    let cidr = match ip {
+                        IpAddr::V4(_) => IpCidr::from_str(&format!("{}/32", ip)).unwrap(),
+                        IpAddr::V6(_) => IpCidr::from_str(&format!("{}/128", ip)).unwrap(),
                     };
-                    excluded_nets.push(net);
+                    excluded_cidrs.push(cidr);
                 }
             }
         }
     }
-    excluded_nets
+    excluded_cidrs
 }
 
 /// Derive a DNS resolver.
