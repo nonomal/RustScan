@@ -1701,6 +1701,7 @@ dependencies = [
  "futures",
  "gcd",
  "hickory-resolver",
+ "ipnet",
  "itertools 0.14.0",
  "log",
  "once_cell",

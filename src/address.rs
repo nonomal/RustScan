@@ -11,6 +11,7 @@ use hickory_resolver::{
     config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts},
     Resolver,
 };
+use ipnet::IpNet;
 use log::debug;
 
 use crate::input::Opts;
@@ -69,17 +70,11 @@ pub fn parse_addresses(input: &Opts) -> Vec<IpAddr> {
         }
     }
 
-    // Finally, craft a list of addresses to be excluded from the scan.
-    let mut excluded_ips: BTreeSet<IpAddr> = BTreeSet::new();
-    if let Some(exclude_addresses) = &input.exclude_addresses {
-        for addr in exclude_addresses {
-            excluded_ips.extend(parse_address(addr, &backup_resolver));
-        }
-    }
+    let excluded_nets = parse_excluded_networks(&input.exclude_addresses, &backup_resolver);
 
     // Remove duplicated/excluded IPs.
     let mut seen = BTreeSet::new();
-    ips.retain(|ip| seen.insert(*ip) && !excluded_ips.contains(ip));
+    ips.retain(|ip| seen.insert(*ip) && !excluded_nets.iter().any(|net| net.contains(ip)));
 
     ips
 }
@@ -123,6 +118,49 @@ fn resolve_ips_from_host(source: &str, backup_resolver: &Resolver) -> Vec<IpAddr
     }
 
     ips
+}
+
+/// Parses excluded networks from a list of addresses.
+///
+/// This function handles three types of inputs:
+/// 1. CIDR notation (e.g. "192.168.0.0/24")
+/// 2. Single IP addresses (e.g. "192.168.0.1")
+/// 3. Hostnames that need to be resolved (e.g. "example.com")
+///
+/// ```rust
+/// # use rustscan::address::parse_excluded_networks;
+/// # use hickory_resolver::Resolver;
+/// let resolver = Resolver::default().unwrap();
+/// let excluded = parse_excluded_networks(&Some(vec!["192.168.0.0/24".to_owned()]), &resolver);
+/// ```
+pub fn parse_excluded_networks(
+    exclude_addresses: &Option<Vec<String>>,
+    resolver: &Resolver,
+) -> Vec<IpNet> {
+    let mut excluded_nets: Vec<IpNet> = Vec::new();
+    if let Some(exclude_addresses) = exclude_addresses {
+        for addr in exclude_addresses {
+            if let Ok(net) = addr.parse::<IpNet>() {
+                excluded_nets.push(net);
+            } else if let Ok(ip) = addr.parse::<IpAddr>() {
+                let net = match ip {
+                    IpAddr::V4(_) => IpNet::new(ip.into(), 32).unwrap(),
+                    IpAddr::V6(_) => IpNet::new(ip.into(), 128).unwrap(),
+                };
+                excluded_nets.push(net);
+            } else {
+                let resolved_ips = resolve_ips_from_host(addr, resolver);
+                for ip in resolved_ips {
+                    let net = match ip {
+                        IpAddr::V4(_) => IpNet::new(ip.into(), 32).unwrap(),
+                        IpAddr::V6(_) => IpNet::new(ip.into(), 128).unwrap(),
+                    };
+                    excluded_nets.push(net);
+                }
+            }
+        }
+    }
+    excluded_nets
 }
 
 /// Derive a DNS resolver.
