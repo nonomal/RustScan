@@ -34,7 +34,12 @@ fn bench_address_parsing() {
             "10.2.0.1".to_owned(),
             "192.168.0.0/24".to_owned(),
         ],
-        exclude_addresses: Some(vec!["10.0.0.0/8".to_owned(), "172.16.0.1".to_owned()]),
+        exclude_addresses: Some(vec![
+            "10.0.0.0/8".to_owned(),
+            "172.16.0.0/12".to_owned(),
+            "192.168.0.0/16".to_owned(),
+            "172.16.0.1".to_owned(),
+        ]),
         ..Default::default()
     };
     let _ips = rustscan::address::parse_addresses(&opts);
