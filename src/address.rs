@@ -136,30 +136,27 @@ pub fn parse_excluded_networks(
     exclude_addresses: &Option<Vec<String>>,
     resolver: &Resolver,
 ) -> Vec<IpCidr> {
-    let mut excluded_cidrs: Vec<IpCidr> = Vec::new();
-    if let Some(exclude_addresses) = exclude_addresses {
-        for addr in exclude_addresses {
-            if let Ok(cidr) = IpCidr::from_str(addr) {
-                excluded_cidrs.push(cidr);
-            } else if let Ok(ip) = addr.parse::<IpAddr>() {
-                let cidr = match ip {
-                    IpAddr::V4(_) => IpCidr::from_str(&format!("{}/32", ip)).unwrap(),
-                    IpAddr::V6(_) => IpCidr::from_str(&format!("{}/128", ip)).unwrap(),
-                };
-                excluded_cidrs.push(cidr);
-            } else {
-                let resolved_ips = resolve_ips_from_host(addr, resolver);
-                for ip in resolved_ips {
-                    let cidr = match ip {
-                        IpAddr::V4(_) => IpCidr::from_str(&format!("{}/32", ip)).unwrap(),
-                        IpAddr::V6(_) => IpCidr::from_str(&format!("{}/128", ip)).unwrap(),
-                    };
-                    excluded_cidrs.push(cidr);
-                }
-            }
-        }
+    exclude_addresses
+        .iter()
+        .flatten()
+        .flat_map(|addr| parse_single_excluded_address(addr, resolver))
+        .collect()
+}
+
+/// Parses a single address into an IpCidr, handling CIDR notation, IP addresses, and hostnames.
+fn parse_single_excluded_address(addr: &str, resolver: &Resolver) -> Vec<IpCidr> {
+    if let Ok(cidr) = IpCidr::from_str(addr) {
+        return vec![cidr];
     }
-    excluded_cidrs
+
+    if let Ok(ip) = IpAddr::from_str(addr) {
+        return vec![IpCidr::new_host(ip)];
+    }
+
+    resolve_ips_from_host(addr, resolver)
+        .into_iter()
+        .map(IpCidr::new_host)
+        .collect()
 }
 
 /// Derive a DNS resolver.
