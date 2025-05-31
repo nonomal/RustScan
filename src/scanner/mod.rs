@@ -112,7 +112,7 @@ impl Scanner {
                 }
             }
         }
-        debug!("Typical socket connection errors {:?}", errors);
+        debug!("Typical socket connection errors {errors:?}");
         debug!("Open Sockets found: {:?}", &open_sockets);
         open_sockets
     }
@@ -153,7 +153,7 @@ impl Scanner {
                     }
                     self.fmt_ports(socket);
 
-                    debug!("Return Ok after {} tries", nr_try);
+                    debug!("Return Ok after {nr_try} tries");
                     return Ok(socket);
                 }
                 Err(e) => {
@@ -164,7 +164,7 @@ impl Scanner {
                     if nr_try == tries {
                         error_string.push(' ');
                         error_string.push_str(&socket.ip().to_string());
-                        return Err(io::Error::new(io::ErrorKind::Other, error_string));
+                        return Err(io::Error::other(error_string));
                     }
                 }
             };
@@ -193,10 +193,9 @@ impl Scanner {
             }
         }
 
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            format!("UDP scan timed-out for all tries on socket {}", socket),
-        ))
+        Err(io::Error::other(format!(
+            "UDP scan timed-out for all tries on socket {socket}"
+        )))
     }
 
     /// Performs the connection to the socket with timeout
@@ -275,7 +274,7 @@ impl Scanner {
 
                 match io::timeout(wait, udp_socket.recv(&mut buf)).await {
                     Ok(size) => {
-                        debug!("Received {} bytes", size);
+                        debug!("Received {size} bytes");
                         self.fmt_ports(socket);
                         Ok(true)
                     }
@@ -289,7 +288,7 @@ impl Scanner {
                 }
             }
             Err(e) => {
-                println!("Err E binding sock {:?}", e);
+                println!("Err E binding sock {e:?}");
                 Err(e)
             }
         }
