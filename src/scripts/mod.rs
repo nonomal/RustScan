@@ -109,7 +109,7 @@ pub fn init_scripts(scripts: &ScriptsRequired) -> Result<Vec<ScriptFile>> {
         }
         ScriptsRequired::Custom => {
             let script_config = ScriptConfig::read_config()?;
-            debug!("Script config \n{:?}", script_config);
+            debug!("Script config \n{script_config:?}");
 
             let script_dir_base = if let Some(config_directory) = &script_config.directory {
                 PathBuf::from(config_directory)
@@ -118,10 +118,10 @@ pub fn init_scripts(scripts: &ScriptsRequired) -> Result<Vec<ScriptFile>> {
             };
 
             let script_paths = find_scripts(script_dir_base)?;
-            debug!("Scripts paths \n{:?}", script_paths);
+            debug!("Scripts paths \n{script_paths:?}");
 
             let parsed_scripts = parse_scripts(script_paths);
-            debug!("Scripts parsed \n{:?}", parsed_scripts);
+            debug!("Scripts parsed \n{parsed_scripts:?}");
 
             // Only Scripts that contain all the tags found in ScriptConfig will be selected.
             if let Some(config_hashset) = script_config.tags {
@@ -142,7 +142,7 @@ pub fn init_scripts(scripts: &ScriptsRequired) -> Result<Vec<ScriptFile>> {
                     }
                 }
             }
-            debug!("\nScript(s) to run {:?}", scripts_to_run);
+            debug!("\nScript(s) to run {scripts_to_run:?}");
         }
     }
 
@@ -269,14 +269,14 @@ impl Script {
             };
             to_run = default_template.fill_with_struct(&exec_parts)?;
         }
-        debug!("\nScript format to run {}", to_run);
+        debug!("\nScript format to run {to_run}");
         execute_script(&to_run)
     }
 }
 
 #[cfg(not(tarpaulin_include))]
 fn execute_script(script: &str) -> Result<String> {
-    debug!("\nScript arguments {}", script);
+    debug!("\nScript arguments {script}");
 
     let (cmd, arg) = if cfg!(unix) {
         ("sh", "-c")
@@ -314,7 +314,7 @@ fn execute_script(script: &str) -> Result<String> {
             Ok(String::from_utf8_lossy(&output.stdout).into_owned())
         }
         Err(error) => {
-            debug!("Command error {}", error.to_string());
+            debug!("Command error {error}",);
             Err(anyhow!(error.to_string()))
         }
     }
@@ -373,7 +373,7 @@ impl ScriptFile {
                 Some(parsed)
             }
             Err(e) => {
-                debug!("Failed to parse ScriptFile headers {}", e.to_string());
+                debug!("Failed to parse ScriptFile headers {e}");
                 None
             }
         }
